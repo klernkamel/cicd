@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
+      - name: Check SSH port reachable
+        run: |
+           timeout 5 bash -c "</dev/tcp/${{ secrets.SSH_HOST }}/${{ secrets.SSH_PORT }}" && echo "SSH port OK" || echo "SSH port FAIL"
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
