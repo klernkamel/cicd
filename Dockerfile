@@ -30,6 +30,7 @@ RUN pip install --no-cache-dir \
       httpx==0.28.1
 
 WORKDIR /app
+ENV PYTHONPATH=/app
 COPY src ./src
 COPY tests ./tests
 
