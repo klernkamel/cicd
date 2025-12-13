@@ -7,51 +7,34 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kubsu
+          POSTGRES_PASSWORD: kubsu
+          POSTGRES_DB: kubsu
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U kubsu -d kubsu"
+          --health-interval=3s
+          --health-timeout=3s
+          --health-retries=30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Create network
-        run: docker network create ci_net || true
-
-      - name: Start Postgres
-        run: |
-          docker rm -f ci_db || true
-          docker run -d --name ci_db --network ci_net \
-            -e POSTGRES_USER=kubsu \
-            -e POSTGRES_PASSWORD=kubsu \
-            -e POSTGRES_DB=kubsu \
-            --health-cmd="pg_isready -U kubsu -d kubsu" \
-            --health-interval=3s --health-timeout=3s --health-retries=30 \
-            postgres:16-alpine
-
-      - name: Wait for Postgres
-        run: |
-          for i in {1..60}; do
-            status="$(docker inspect --format='{{.State.Health.Status}}' ci_db 2>/dev/null || true)"
-            echo "db health: $status"
-            [ "$status" = "healthy" ] && exit 0
-            sleep 2
-          done
-          echo "Postgres not healthy"
-          docker logs ci_db
-          exit 1
 
       - name: Build test image
         run: docker build --target test -t app-test .
 
       - name: Run tests in built image
         run: |
-          docker run --rm --network ci_net \
-            -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@ci_db:5432/kubsu" \
+          docker run --rm --network host \
+            -e DATABASE_URL="postgresql+psycopg://kubsu:kubsu@127.0.0.1:5432/kubsu" \
             app-test
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker logs ci_db || true
-          docker rm -f ci_db || true
-          docker network rm ci_net || true
 
   deploy:
     runs-on: self-hosted
