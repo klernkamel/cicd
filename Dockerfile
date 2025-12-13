@@ -5,22 +5,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      gcc \
-      libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-
+# ставим зависимости (без apt)
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir \
       fastapi==0.115.8 \
       uvicorn==0.34.0 \
       sqlalchemy==2.0.37 \
-      psycopg-binary==3.2.4 \
-      psycopg==3.2.4
+      psycopg-binary==3.2.4
 
 FROM deps AS test
 
@@ -31,6 +25,7 @@ RUN pip install --no-cache-dir \
 
 WORKDIR /app
 ENV PYTHONPATH=/app
+
 COPY src ./src
 COPY tests ./tests
 
@@ -42,16 +37,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      libpq5 \
-    && rm -rf /var/lib/apt/lists/*
+ENV PYTHONPATH=/app
 
 COPY --from=deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY src ./src
+COPY entrypoint.py ./entrypoint.py
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python", "entrypoint.py"]
