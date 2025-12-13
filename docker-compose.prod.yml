@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: kubsu
+      POSTGRES_PASSWORD: kubsu
+      POSTGRES_DB: kubsu
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      target: runtime
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+psycopg://kubsu:kubsu@db:5432/kubsu
+      PORT: ${APP_PORT}
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
