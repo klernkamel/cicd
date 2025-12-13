@@ -21,30 +21,28 @@ jobs:
           docker compose -f docker-compose.ci.yml down -v
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: test
     steps:
-      - name: Check SSH port reachable
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy with podman-compose
+        env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          APP_PORT: ${{ secrets.APP_PORT }}
         run: |
-           timeout 5 bash -c "</dev/tcp/${{ secrets.SSH_HOST }}/${{ secrets.SSH_PORT }}" && echo "SSH port OK" || echo "SSH port FAIL"
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            set -e
-            mkdir -p "${{ secrets.DEPLOY_DIR }}"
-            cd "${{ secrets.DEPLOY_DIR }}"
+          set -e
+          mkdir -p "$DEPLOY_DIR"
+          cd "$DEPLOY_DIR"
 
-            if [ ! -d .git ]; then
-              git clone "${{ secrets.REPO_URL }}" .
-            else
-              git pull
-            fi
+          # обновляем код в папке деплоя
+          if [ ! -d .git ]; then
+            git clone "${{ secrets.REPO_URL }}" .
+          else
+            git pull
+          fi
 
-            export APP_PORT="${{ secrets.APP_PORT }}"
-            docker compose -f docker-compose.prod.yml up -d --build
-            docker image prune -f
+          export APP_PORT="$APP_PORT"
+          podman-compose -f docker-compose.prod.yml up -d --build
+          podman image prune -f
