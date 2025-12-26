@@ -22,7 +22,6 @@ COPY src ./src
 
 ENV PYTHONPATH=/app \
     ROOT_PATH=""
-EXPOSE 8008
 
 USER appuser
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8025"]
