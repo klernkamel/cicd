@@ -45,10 +45,12 @@ jobs:
           POSTGRES_USER: kubsu
           POSTGRES_PASSWORD: kubsu
           POSTGRES_DB: kubsu
+          PGUSER: kubsu
+          PGDATABASE: kubsu
         ports:
           - 5432:5432
         options: >-
-          --health-cmd='pg_isready -U kubsu -d kubsu'
+          --health-cmd=pg_isready
           --health-interval=2s
           --health-timeout=2s
           --health-retries=30
