@@ -25,7 +25,7 @@ ENV PYTHONPATH=/app \
 EXPOSE 8008
 
 USER appuser
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8008"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8025"]
 
 FROM prod AS test
 USER root
