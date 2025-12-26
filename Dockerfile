@@ -1,50 +1,36 @@
-FROM python:3.12-slim AS deps
-
+FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+FROM base AS builder
 
-# ставим зависимости (без apt)
-RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir \
-      fastapi==0.115.8 \
-      uvicorn==0.34.0 \
-      sqlalchemy==2.0.37 \
-      psycopg-binary==3.2.4
+RUN python -m pip install --no-cache-dir wheel
 
-FROM deps AS test
+COPY pyproject.toml ./
+RUN python -m pip wheel --wheel-dir /wheels .
+RUN python -m pip wheel --wheel-dir /wheels-test ".[test]"
 
-RUN pip install --no-cache-dir \
-      pytest>=6.2.5 \
-      pytest-asyncio==0.25.3 \
-      httpx==0.28.1
+FROM base AS prod
+RUN adduser --disabled-password --gecos "" appuser
 
-WORKDIR /app
-ENV PYTHONPATH=/app
+COPY --from=builder /wheels /wheels
+RUN python -m pip install --no-index --find-links=/wheels KubSU && rm -rf /wheels
 
 COPY src ./src
+
+ENV PYTHONPATH=/app \
+    ROOT_PATH=""
+EXPOSE 8008
+
+USER appuser
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8008"]
+
+FROM prod AS test
+USER root
+COPY --from=builder /wheels-test /wheels-test
+RUN python -m pip install --no-index --find-links=/wheels-test KubSU[test] && rm -rf /wheels-test
 COPY tests ./tests
-
+USER appuser
 CMD ["pytest", "-q", "tests"]
-
-FROM python:3.12-slim AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-WORKDIR /app
-ENV PYTHONPATH=/app
-
-COPY --from=deps /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-COPY src ./src
-COPY entrypoint.py ./entrypoint.py
-
-EXPOSE 8000
-
-CMD ["python", "entrypoint.py"]
